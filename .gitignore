@@ -1,0 +1,63 @@
+# ----------------------
+# 1. Python & VS Code (The Basics)
+# ----------------------
+__pycache__/
+*.pyc
+.vscode/
+.venv/
+venv/
+*.log
+
+# ----------------------
+# 2. Operating System Junk
+# ----------------------
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ----------------------
+# 3. Installer & Build Output
+# ----------------------
+Output/
+*.exe
+*.zip
+
+# ----------------------
+# 4. LucyTrace Pipeline (Current)
+# ----------------------
+# Ignore input folder so personal images aren't uploaded
+input_images/
+
+# Ignore intermediate processing files
+cleaned_png/
+
+# Ignore generated output folders
+output_svg/
+output_png/
+output_pdf/
+
+# Ignore the specific runtime log
+lucytrace.log
+
+# ----------------------
+# 5. Other and Legacy / Old Pipeline Folders
+# ----------------------
+# Other
+LucyTraceIcon/
+SupportFiles
+TestImages/
+
+# Kept for safety during migration
+input_png/
+color_comics_in/
+color_comics_out/
+svg/
+pdf/
+png/
+process.log
