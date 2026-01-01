@@ -1,7 +1,7 @@
 # LucyTrace 🐾
 
 ### Turn "Ruff Drafts" into the "Director's Cut"
-<img src="LucyTraceDocImage.png" alt="LucyTrace Logo Icon" width="75%">
+<img src="resources/LucyTraceDocImage.png" alt="LucyTrace Logo Icon" width="75%">
 
 **LucyTrace** is a high-performance pipeline for converting raster images (PNG, JPG, WEBP, etc.) into clean vector SVGs and print-ready coloring pages.
 
@@ -89,23 +89,40 @@ The project uses the following structure (folders are auto-created if missing):
 
 ## 📦 Requirements
 
+LucyTrace requires **Python 3**, **ImageMagick**, **Potrace**, and **Inkscape**.
 All tools must be installed and accessible via your system PATH.
 
-### 1. Python 3.x
-* **All OS:** Download from [Python.org](https://www.python.org/).
+## Installation Guide
 
-### 2. ImageMagick (for cleaning)
-* **Windows:** Download the **DLL version** from [ImageMagick.org](https://imagemagick.org/).
-    * **IMPORTANT:** During installation, check **"Install legacy utilities (e.g. convert)"** and **"Add to PATH"**.
-* **Mac/Linux:** `brew install imagemagick` or `sudo apt install imagemagick`.
+### 🪟 Windows Setup
+1.  **Python 3:** Download from [python.org](https://www.python.org/). Ensure **"Add to PATH"** is checked.
+2.  **ImageMagick:** Download the DLL installer from [imagemagick.org](https://imagemagick.org/). Check **"Install legacy utilities"** and **"Add to PATH"**.
+3.  **Inkscape:** Install from [inkscape.org](https://inkscape.org/).
+4.  **Potrace:**
+    * Download the Windows zip from [SourceForge](https://potrace.sourceforge.net/).
+    * Extract it (e.g., to `C:\Program Files\potrace`).
+    * Add that folder to your System Environment **PATH**.
 
-### 3. Potrace (for vectorizing)
-* **Windows:** Download the binary from [SourceForge](https://potrace.sourceforge.net/). Add the folder containing `potrace.exe` to your System PATH.
-* **Mac/Linux:** `brew install potrace` or `sudo apt install potrace`.
+### 🍎 macOS Setup
+1.  **Homebrew:** If you don't have it, install it first.
+2.  **Install Tools:**
+    ```bash
+    brew install python imagemagick potrace --cask inkscape
+    ```
+3.  **Link Inkscape:** macOS needs this link to find the tool:
+    ```bash
+    sudo ln -s /Applications/Inkscape.app/Contents/MacOS/inkscape /usr/local/bin/inkscape
+    ```
+4.  **Permissions:** Make the launcher executable:
+    ```bash
+    chmod +x lucytrace.sh
+    ```
 
-### 4. Inkscape (for exporting)
-* **Windows:** Download and install from [Inkscape.org](https://inkscape.org/).
-* **Mac/Linux:** `brew install --cask inkscape` or `sudo apt install inkscape`.
+### 🐧 Linux Setup (Debian/Ubuntu)
+```bash
+sudo apt update
+sudo apt install python3 python3-pip imagemagick potrace inkscape
+```
 
 ---
 *Happy Making!* 🎨
