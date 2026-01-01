@@ -1,9 +1,7 @@
 # LucyTrace 🐾
 
 ### Turn "Ruff Drafts" into the "Director's Cut"
-=======
 <img src="resources/LucyTraceDocImage.png" alt="LucyTrace Logo Icon" width="50%">
-
 
 **LucyTrace** is a high-performance pipeline for converting raster images (PNG, JPG, WEBP, etc.) into clean vector SVGs and print-ready coloring pages.
 
