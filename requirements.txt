@@ -1,0 +1,3 @@
+# Core Desktop UI & Image Processing requirements for LucyTrace
+Pillow>=10.0.0
+customtkinter>=5.2.0

@@ -14,17 +14,30 @@ Named after our Director of Wellness (Lucy the Cavachon), this tool ensures your
 
 ## 🚀 Quick Start
 
-1.  **Drop your images** (PNG, JPG, BMP, etc.) into the root folder next to the script.
-2.  **Run the pipeline:**
-    * **Windows:** Double-click `lucytrace.bat`.
-    * **Mac/Linux:** Double-click `lucytrace.sh`.
-3.  **Choose your Profile** from the menu:
-    * `[1] BASE`: Fast processing for clean line art.
-    * `[2] ADVANCED`: Smart processing for photos, sketches, or complex images.
-4.  **Collect your files:**
-    * `output_svg/` -> Vector files.
-    * `output_png/` -> High-res raster files.
-    * `output_pdf/` -> Print-ready documents.
+### 1. Automated Setup (First Time)
+Run the cross-platform setup wizard:
+```bash
+# Windows
+python setup.py
+
+# macOS / Linux
+python3 setup.py
+```
+The wizard will:
+* Check for ImageMagick, Potrace, and Inkscape.
+* Prompt to create a virtual environment with OS-friendly defaults (`venv_win`, `venv_mac`).
+* Install dependencies from `requirements.txt`.
+* Optionally generate a one-click Desktop shortcut with the LucyTrace icon.
+
+### 2. Launching LucyTrace
+You can run LucyTrace using:
+* **Desktop App (CustomTkinter):** Double-click your Desktop shortcut or run `python lucytrace.py`
+* **Command Line / Batch Script:** Double-click `lucytrace.bat` / `lucytrace.sh` or run `python lucytrace.py --cli`
+
+### 3. Collect Output
+* `output_svg/` -> Vector files (Optimized for Laser/CAD).
+* `output_png/` -> High-res raster files.
+* `output_pdf/` -> Print-ready documents.
 
 ---
 

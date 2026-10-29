@@ -10,10 +10,22 @@ IF %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-REM Check for venv
-IF EXIST venv (
-    echo Activating virtual environment...
-    call venv\Scripts\activate
+REM Check for venv (checks venv_win, venv, or .venv)
+IF EXIST venv_win\Scripts\activate.bat (
+    echo Activating virtual environment: venv_win...
+    call venv_win\Scripts\activate.bat
+) ELSE IF EXIST venv\Scripts\activate.bat (
+    echo Activating virtual environment: venv...
+    call venv\Scripts\activate.bat
+) ELSE IF EXIST .venv\Scripts\activate.bat (
+    echo Activating virtual environment: .venv...
+    call .venv\Scripts\activate.bat
+)
+
+REM If arguments were passed, forward directly to Python
+IF NOT "%~1"=="" (
+    python lucytrace.py %*
+    exit /b %ERRORLEVEL%
 )
 
 REM --- Interactive Menu ---

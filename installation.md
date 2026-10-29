@@ -81,23 +81,24 @@ sudo apt install python3 python3-pip imagemagick potrace inkscape
 
 ---
 
-## 🐍 Optional: Virtual Environment (venv)
+## 🐍 Automated Setup & Virtual Environment (Recommended)
 
-Using a virtual environment prevents Python version conflicts.
+LucyTrace includes an automated cross-platform setup wizard that creates your virtual environment, installs dependencies, and creates desktop shortcuts:
 
 1.  Navigate to the LucyTrace folder:
     ```bash
     cd /path/to/LucyTrace
     ```
-2.  Create the venv:
+2.  Run the setup script:
     ```bash
     # Windows
-    python -m venv venv
+    python setup.py
     
     # Mac/Linux
-    python3 -m venv venv
+    python3 setup.py
     ```
-3.  **That's it!** The `lucytrace.bat` (Windows) and `lucytrace.sh` (Mac) wrappers automatically detect the `venv` folder and use it if it exists.
+3.  The wizard will prompt you for your preferred virtual environment name (e.g. `venv_win` on Windows or `venv_mac` on macOS).
+4.  **Auto-detection:** The `lucytrace.bat` (Windows) and `lucytrace.sh` (Mac) scripts automatically detect your virtual environment (`venv_win`, `venv_mac`, or `venv`) and activate it on startup.
 
 ---
 

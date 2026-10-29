@@ -2,12 +2,11 @@
 """
 LucyTrace: Turn "Ruff Drafts" into the "Director's Cut"
 Unified Coloring Page Pipeline
-Last update: 2026-01-01 12:15 PM
 
-- features:
-    - Profiles: 'Base' (Fast/Strict) vs 'Advanced' (Smart/Auto-Levels)
-    - Engine: ImageMagick (Clean) -> Potrace (Trace) -> Inkscape (Export)
-    - Output: Optimized SVG (Laser/CAD) and High-Res PNG/PDF (Print)
+- Profiles: 'Base' (Fast/Strict) vs 'Advanced' (Smart/Auto-Levels)
+- Engine: ImageMagick (Clean) -> Potrace (Trace) -> Inkscape (Export)
+- Output: Optimized SVG (Laser/CAD) and High-Res PNG/PDF (Print)
+- Frontend: CLI, CustomTkinter (Desktop GUI), NiceGUI (Web Sandbox)
 """
 
 from pathlib import Path
@@ -17,6 +16,18 @@ import sys
 import logging
 import argparse
 import configparser
+
+# Ensure Windows terminal doesn't crash on emoji/Unicode output
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 # -----------------------------------------------------------------------------
 # Paths
@@ -29,7 +40,8 @@ SVG = ROOT / "output_svg"
 PNG = ROOT / "output_png"
 PDF = ROOT / "output_pdf"
 LOGFILE = ROOT / "lucytrace.log"
-README = ROOT / "README.md"
+README = ROOT / "readme.md"
+SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 
 # -----------------------------------------------------------------------------
 # Logging
@@ -44,11 +56,10 @@ logging.basicConfig(
 )
 
 # -----------------------------------------------------------------------------
-# Configuration Loader
+# Configuration Loader & Saver
 # -----------------------------------------------------------------------------
-def load_config():
+def load_config() -> dict:
     """Load settings from lucytrace.ini, falling back to defaults."""
-    # FIX: interpolation=None allows using '%' symbols in the INI file without error
     config = configparser.ConfigParser(interpolation=None)
     
     defaults = {
@@ -90,9 +101,42 @@ def load_config():
         'opttolerance': get_val('Potrace', 'opttolerance', defaults['opttolerance']),
     }
 
+def save_config(cfg: dict):
+    """Save settings back to lucytrace.ini."""
+    config = configparser.ConfigParser(interpolation=None)
+    config['General'] = {
+        'profile': str(cfg.get('profile', 'adv')),
+        'export_width': str(cfg.get('export_width', '3000')),
+        'overwrite': str(cfg.get('overwrite', False)).lower(),
+    }
+    config['ImageProcessing'] = {
+        'threshold_percent': str(cfg.get('threshold_percent', '55%')),
+        'level_adjustment': str(cfg.get('level_adjustment', '10%,90%')),
+        'posterize_colors': str(cfg.get('posterize_colors', '8')),
+        'saturation_threshold': str(cfg.get('saturation_threshold', '0.20')),
+    }
+    config['Modes'] = {
+        'mode': str(cfg.get('mode', 'auto')),
+        'invert': str(cfg.get('invert', 'off')),
+    }
+    config['Potrace'] = {
+        'turdsize': str(cfg.get('turdsize', '5')),
+        'opttolerance': str(cfg.get('opttolerance', '0.5')),
+    }
+    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        config.write(f)
+
 # -----------------------------------------------------------------------------
-# Utilities
+# System Tool Utilities
 # -----------------------------------------------------------------------------
+def check_system_tools() -> dict:
+    """Check existence of all external CLI dependencies."""
+    return {
+        "magick": shutil.which("magick") or shutil.which("convert"),
+        "potrace": shutil.which("potrace"),
+        "inkscape": shutil.which("inkscape"),
+    }
+
 def require_tool(name: str) -> str:
     path = shutil.which(name)
     if not path:
@@ -102,14 +146,17 @@ def require_tool(name: str) -> str:
         sys.exit(1)
     return path
 
-def run(cmd: list[str]):
-    logging.info("Running: %s", " ".join(cmd))
+def run(cmd: list[str], log_cb=None):
+    cmd_str = " ".join(cmd)
+    logging.info("Running: %s", cmd_str)
+    if log_cb:
+        log_cb(f"Running: {cmd_str}")
     subprocess.run(cmd, check=True)
 
 # -----------------------------------------------------------------------------
-# Logic
+# Processing Pipeline Logic
 # -----------------------------------------------------------------------------
-def detect_color_mode(magick: str, src: Path, cfg: dict) -> str:
+def detect_color_mode(magick: str, src: Path, cfg: dict, log_cb=None) -> str:
     """Inspects image saturation to determine if it is Color or B&W."""
     cmd = [
         magick, str(src), "-colorspace", "HSL", "-channel", "S", 
@@ -120,19 +167,25 @@ def detect_color_mode(magick: str, src: Path, cfg: dict) -> str:
         saturation = float(result.stdout.strip())
         limit = float(cfg['saturation_threshold'])
         mode = 'color' if saturation > limit else 'bw'
-        logging.info(f"[Analysis] {src.name} Saturation: {saturation:.4f} (Threshold: {limit}) -> {mode.upper()}")
+        msg = f"[Analysis] {src.name} Saturation: {saturation:.4f} (Threshold: {limit}) -> {mode.upper()}"
+        logging.info(msg)
+        if log_cb: log_cb(msg)
         return mode
     except (subprocess.CalledProcessError, ValueError):
-        logging.warning(f"Could not auto-detect color for {src.name}, defaulting to bw")
+        msg = f"Could not auto-detect color for {src.name}, defaulting to bw"
+        logging.warning(msg)
+        if log_cb: log_cb(msg)
         return 'bw'
 
-def clean_png(magick: str, src: Path, dst: Path, cfg: dict, profile: str, mode: str, invert_mode: str):
+def clean_png(magick: str, src: Path, dst: Path, cfg: dict, profile: str, mode: str, invert_mode: str, log_cb=None):
     """Clean the PNG for tracing. Dispatches logic based on 'profile'."""
     cmd = [magick, str(src)]
 
     # --- BASE PROFILE (Fast & Strict) ---
     if profile == 'base':
-        logging.info(f"Processing {src.name} with Base Profile (Simple Threshold)")
+        msg = f"Processing {src.name} with Base Profile (Simple Threshold)"
+        logging.info(msg)
+        if log_cb: log_cb(msg)
         cmd.extend([
             "-alpha", "remove", "-alpha", "off", "-colorspace", "Gray",
             "-threshold", cfg['threshold_percent']
@@ -141,16 +194,20 @@ def clean_png(magick: str, src: Path, dst: Path, cfg: dict, profile: str, mode: 
     # --- ADVANCED PROFILE (Smart & Flexible) ---
     else:
         if mode == 'auto':
-            mode = detect_color_mode(magick, src, cfg)
+            mode = detect_color_mode(magick, src, cfg, log_cb=log_cb)
         else:
-            logging.info(f"Processing {src.name} with Advanced Profile (Forced: {mode.upper()})")
+            msg = f"Processing {src.name} with Advanced Profile (Forced: {mode.upper()})"
+            logging.info(msg)
+            if log_cb: log_cb(msg)
 
         # 1. Auto-Levels (Contrast Stretch)
         cmd.extend(["-level", cfg['level_adjustment']])
 
         # 2. Invert (Negative)
         if invert_mode == 'on':
-            logging.info(f"Applying INVERT to {src.name}")
+            msg = f"Applying INVERT to {src.name}"
+            logging.info(msg)
+            if log_cb: log_cb(msg)
             cmd.append("-negate")
 
         # 3. Color vs B&W Logic
@@ -166,58 +223,92 @@ def clean_png(magick: str, src: Path, dst: Path, cfg: dict, profile: str, mode: 
             ])
 
     cmd.append(str(dst))
-    run(cmd)
+    run(cmd, log_cb=log_cb)
 
-def trace_svg(src: Path, dst: Path, cfg: dict):
+def trace_svg(src: Path, dst: Path, cfg: dict, log_cb=None):
     """Trace PNG to SVG using Potrace."""
     cmd_magick = ["magick", str(src), "pnm:-"]
     cmd_potrace = [
-        "potrace", "-s", "--turdsize", cfg['turdsize'], 
-        "--alphamax", "1", "--opttolerance", cfg['opttolerance'], "-o", str(dst)
+        "potrace", "-s", "--turdsize", str(cfg['turdsize']), 
+        "--alphamax", "1", "--opttolerance", str(cfg['opttolerance']), "-o", str(dst)
     ]
-    logging.info(f"Tracing {src.name} with Potrace...")
+    msg = f"Tracing {src.name} with Potrace..."
+    logging.info(msg)
+    if log_cb: log_cb(msg)
     try:
         p1 = subprocess.Popen(cmd_magick, stdout=subprocess.PIPE)
         p2 = subprocess.run(cmd_potrace, stdin=p1.stdout, check=True)
         p1.wait() 
     except subprocess.CalledProcessError as e:
-        logging.error(f"Tracing failed for {src.name}: {e}")
+        err_msg = f"Tracing failed for {src.name}: {e}"
+        logging.error(err_msg)
+        if log_cb: log_cb(err_msg)
         raise
 
-def export_png(inkscape: str, src: Path, dst: Path, cfg: dict):
+def export_png(inkscape: str, src: Path, dst: Path, cfg: dict, log_cb=None):
     run([
         inkscape, str(src), f"--export-width={cfg['export_width']}",
-        "--export-type=png", "--export-area-drawing", f"--export-filename={dst}"
-    ])
+        "--export-type=png", "--export-area-drawing",
+        "--export-background=white", "--export-background-opacity=1.0",
+        f"--export-filename={dst}"
+    ], log_cb=log_cb)
 
-def export_pdf(inkscape: str, src: Path, dst: Path):
+def export_pdf(inkscape: str, src: Path, dst: Path, log_cb=None):
     run([
         inkscape, str(src), "--export-type=pdf", 
         "--export-area-drawing", f"--export-filename={dst}"
-    ])
+    ], log_cb=log_cb)
+
+def process_single_image(src_file: Path, cfg: dict, profile: str = None, mode: str = None, 
+                         invert_mode: str = None, overwrite: bool = False, log_cb=None) -> dict:
+    """Process a single image through the full LucyTrace pipeline."""
+    for folder in (INPUT, CLEANED, SVG, PNG, PDF):
+        folder.mkdir(exist_ok=True)
+
+    profile = profile or cfg.get('profile', 'adv')
+    mode = mode or cfg.get('mode', 'auto')
+    invert_mode = invert_mode or cfg.get('invert', 'off')
+
+    stem = src_file.stem
+    cleaned_png = CLEANED / f"{stem}.png"
+    svg_file = SVG / f"{stem}.svg"
+    out_png = PNG / f"{stem}.png"
+    out_pdf = PDF / f"{stem}.pdf"
+
+    outputs_exist = all(p.exists() for p in (cleaned_png, svg_file, out_png, out_pdf))
+    if outputs_exist and not overwrite:
+        return {
+            "status": "skipped",
+            "cleaned": cleaned_png,
+            "svg": svg_file,
+            "png": out_png,
+            "pdf": out_pdf,
+            "message": f"Outputs already exist for {src_file.name}. (Overwrite=False)"
+        }
+
+    tools = check_system_tools()
+    magick = tools['magick'] or require_tool("magick")
+    inkscape = tools['inkscape'] or require_tool("inkscape")
+    require_tool("potrace")
+
+    clean_png(magick, src_file, cleaned_png, cfg, profile=profile, mode=mode, invert_mode=invert_mode, log_cb=log_cb)
+    trace_svg(cleaned_png, svg_file, cfg, log_cb=log_cb)
+    export_png(inkscape, svg_file, out_png, cfg, log_cb=log_cb)
+    export_pdf(inkscape, svg_file, out_pdf, log_cb=log_cb)
+
+    return {
+        "status": "ok",
+        "cleaned": cleaned_png,
+        "svg": svg_file,
+        "png": out_png,
+        "pdf": out_pdf,
+        "message": f"Successfully processed {src_file.name}"
+    }
 
 # -----------------------------------------------------------------------------
-# Main
+# CLI Entry Point
 # -----------------------------------------------------------------------------
-def main():
-    cfg = load_config()
-    parser = argparse.ArgumentParser(description="LucyTrace: Turn 'Ruff Drafts' into the 'Director's Cut'")
-    parser.set_defaults(
-        overwrite=cfg['overwrite'], profile=cfg['profile'],
-        mode=cfg['mode'], invert=cfg['invert']
-    )
-    parser.add_argument('-p', '--profile', choices=['base', 'adv'], help='Processing Profile')
-    parser.add_argument('-o', '--overwrite', action='store_true', help='Force reprocessing')
-    parser.add_argument('--mode', choices=['auto', 'color', 'bw'], help='(Adv) Trace mode')
-    parser.add_argument('--invert', choices=['on', 'off'], help='(Adv) Invert colors')
-    parser.add_argument('--?', action='store_true', help='Display README')
-
-    args = parser.parse_args()
-    if args.__dict__.get('?'):
-        if README.exists(): print(README.read_text(encoding='utf-8'))
-        else: print("README.md not found.")
-        sys.exit(0)
-
+def run_cli(args, cfg):
     PROFILE, OVERWRITE, MODE, INVERT = args.profile, args.overwrite, args.mode, args.invert
 
     logging.info(f"Starting LucyTrace (Profile: {PROFILE.upper()}, Mode: {MODE}, Invert: {INVERT})")
@@ -239,11 +330,10 @@ def main():
             try: old_path.rename(new_path)
             except OSError as e: logging.warning(f"Could not rename: {e}")
 
-    # Import Images
-    SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
+    # Import Images from root into input_images
     for file_path in ROOT.iterdir():
         if not file_path.is_file(): continue
-        if file_path.name in (Path(__file__).name, "README.md", "lucytrace.ini"): continue
+        if file_path.name in (Path(__file__).name, "readme.md", "README.md", "lucytrace.ini", "setup.py", "requirements.txt"): continue
         if file_path.suffix.lower() not in SUPPORTED_EXTS: continue
 
         target = INPUT / file_path.name
@@ -252,8 +342,8 @@ def main():
             shutil.move(str(file_path), str(target))
 
     # Check Tools
-    magick = require_tool("magick")
-    inkscape = require_tool("inkscape")
+    require_tool("magick")
+    require_tool("inkscape")
     require_tool("potrace") 
 
     # Processing Loop
@@ -265,8 +355,6 @@ def main():
     skip_all_existing = False
     for src_file in input_files:
         stem = src_file.stem
-        logging.info(f"Processing: {src_file.name}")
-        
         cleaned_png = CLEANED / f"{stem}.png"
         svg_file = SVG / f"{stem}.svg"
         out_png = PNG / f"{stem}.png"
@@ -294,14 +382,50 @@ def main():
             continue
 
         try:
-            clean_png(magick, src_file, cleaned_png, cfg, profile=PROFILE, mode=MODE, invert_mode=INVERT)
-            trace_svg(cleaned_png, svg_file, cfg)
-            export_png(inkscape, svg_file, out_png, cfg)
-            export_pdf(inkscape, svg_file, out_pdf)
+            process_single_image(src_file, cfg, profile=PROFILE, mode=MODE, invert_mode=INVERT, overwrite=True)
         except Exception as e:
             logging.error(f"Failed processing {src_file.name}: {e}")
 
     logging.info("LucyTrace Pipeline Complete")
+
+def main():
+    cfg = load_config()
+    parser = argparse.ArgumentParser(description="LucyTrace: Turn 'Ruff Drafts' into the 'Director's Cut'")
+    parser.set_defaults(
+        overwrite=cfg['overwrite'], profile=cfg['profile'],
+        mode=cfg['mode'], invert=cfg['invert']
+    )
+    parser.add_argument('-p', '--profile', choices=['base', 'adv'], help='Processing Profile')
+    parser.add_argument('-o', '--overwrite', action='store_true', help='Force reprocessing')
+    parser.add_argument('--mode', choices=['auto', 'color', 'bw'], help='(Adv) Trace mode')
+    parser.add_argument('--invert', choices=['on', 'off'], help='(Adv) Invert colors')
+    parser.add_argument('--?', action='store_true', help='Display README')
+    
+    # UI Selector flags
+    parser.add_argument('--gui', action='store_true', help='Launch CustomTkinter desktop GUI (default)')
+    parser.add_argument('--cli', action='store_true', help='Force CLI execution')
+
+    # If no arguments provided in interactive environment, default to GUI if available
+    raw_args = sys.argv[1:]
+    
+    args = parser.parse_args()
+    if args.__dict__.get('?'):
+        if README.exists(): print(README.read_text(encoding='utf-8'))
+        else: print("README.md not found.")
+        sys.exit(0)
+
+    if args.gui or (not raw_args and not args.cli):
+        # Default launcher action is Desktop GUI
+        try:
+            import gui_ctk
+            gui_ctk.main()
+            return
+        except ImportError as e:
+            logging.info(f"CustomTkinter GUI not available ({e}). Falling back to CLI mode.")
+            run_cli(args, cfg)
+            return
+
+    run_cli(args, cfg)
 
 if __name__ == "__main__":
     main()
