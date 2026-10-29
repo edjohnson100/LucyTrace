@@ -6,7 +6,7 @@ Unified Coloring Page Pipeline
 - Profiles: 'Base' (Fast/Strict) vs 'Advanced' (Smart/Auto-Levels)
 - Engine: ImageMagick (Clean) -> Potrace (Trace) -> Inkscape (Export)
 - Output: Optimized SVG (Laser/CAD) and High-Res PNG/PDF (Print)
-- Frontend: CLI, CustomTkinter (Desktop GUI), NiceGUI (Web Sandbox)
+- Frontend: CLI and CustomTkinter (Desktop GUI)
 """
 
 from pathlib import Path
@@ -40,7 +40,7 @@ SVG = ROOT / "output_svg"
 PNG = ROOT / "output_png"
 PDF = ROOT / "output_pdf"
 LOGFILE = ROOT / "lucytrace.log"
-README = ROOT / "readme.md"
+README = ROOT / "README.md"
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 
 # -----------------------------------------------------------------------------
@@ -333,7 +333,7 @@ def run_cli(args, cfg):
     # Import Images from root into input_images
     for file_path in ROOT.iterdir():
         if not file_path.is_file(): continue
-        if file_path.name in (Path(__file__).name, "readme.md", "README.md", "lucytrace.ini", "setup.py", "requirements.txt"): continue
+        if file_path.name in (Path(__file__).name, "README.md", "lucytrace.ini", "setup.py", "requirements.txt"): continue
         if file_path.suffix.lower() not in SUPPORTED_EXTS: continue
 
         target = INPUT / file_path.name

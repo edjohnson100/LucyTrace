@@ -6,7 +6,7 @@ LucyTrace Setup & Installation Wizard
 Features:
 - Verifies system tools (ImageMagick, Potrace, Inkscape) with OS-specific instructions.
 - Creates an isolated virtual environment with custom naming (e.g. venv_win, venv_mac).
-- Installs Python dependencies (Pillow, CustomTkinter, NiceGUI).
+- Installs Python dependencies (Pillow, CustomTkinter).
 - Generates desktop shortcuts and one-click launchers.
 """
 
